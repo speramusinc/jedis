@@ -1,4 +1,4 @@
-package redis.clients.jedis.util;
+package redis.clients.util;
 
 public final class KeyMergeUtil {
   private KeyMergeUtil(){

@@ -855,11 +855,7 @@ public class BinaryClient extends Connection {
   }
 
   public void configResetStat() {
-    sendCommand(CONFIG, Keyword.RESETSTAT.raw);
-  }
-
-  public void configRewrite() {
-    sendCommand(CONFIG, Keyword.REWRITE.raw);
+    sendCommand(CONFIG, Keyword.RESETSTAT.name());
   }
 
   public void setbit(final byte[] key, final long offset, final byte[] value) {

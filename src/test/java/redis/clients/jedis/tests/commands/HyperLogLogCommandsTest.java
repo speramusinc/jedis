@@ -4,7 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-import redis.clients.jedis.util.SafeEncoder;
+import redis.clients.util.SafeEncoder;
 
 public class HyperLogLogCommandsTest extends JedisCommandTestBase {
 

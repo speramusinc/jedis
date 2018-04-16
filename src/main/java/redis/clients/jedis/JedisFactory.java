@@ -13,7 +13,7 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 import redis.clients.jedis.exceptions.InvalidURIException;
 import redis.clients.jedis.exceptions.JedisException;
-import redis.clients.jedis.util.JedisURIHelper;
+import redis.clients.util.JedisURIHelper;
 
 /**
  * PoolableObjectFactory custom impl.

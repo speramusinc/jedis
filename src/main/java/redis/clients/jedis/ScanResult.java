@@ -2,7 +2,7 @@ package redis.clients.jedis;
 
 import java.util.List;
 
-import redis.clients.jedis.util.SafeEncoder;
+import redis.clients.util.SafeEncoder;
 
 public class ScanResult<T> {
   private byte[] cursor;

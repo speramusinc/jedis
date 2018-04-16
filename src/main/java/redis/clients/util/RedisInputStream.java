@@ -7,7 +7,7 @@
  * for the specific language governing permissions and limitations under the License.
  */
 
-package redis.clients.jedis.util;
+package redis.clients.util;
 
 import java.io.*;
 

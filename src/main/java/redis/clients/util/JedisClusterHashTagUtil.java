@@ -1,4 +1,4 @@
-package redis.clients.jedis.util;
+package redis.clients.util;
 
 /**
  * Holds various methods/utilities to manipualte and parse redis hash-tags. See <a

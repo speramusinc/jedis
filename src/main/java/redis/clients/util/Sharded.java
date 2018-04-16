@@ -1,4 +1,4 @@
-package redis.clients.jedis.util;
+package redis.clients.util;
 
 import java.util.Collection;
 import java.util.Collections;

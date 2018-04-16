@@ -7,8 +7,8 @@ import redis.clients.jedis.params.GeoRadiusParam;
 import redis.clients.jedis.params.SetParams;
 import redis.clients.jedis.params.ZAddParams;
 import redis.clients.jedis.params.ZIncrByParams;
-import redis.clients.jedis.util.KeyMergeUtil;
-import redis.clients.jedis.util.SafeEncoder;
+import redis.clients.util.KeyMergeUtil;
+import redis.clients.util.SafeEncoder;
 
 import java.io.Closeable;
 import java.util.Collection;
@@ -16,8 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocketFactory;
+
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import redis.clients.jedis.util.JedisClusterHashTagUtil;
+import redis.clients.util.JedisClusterHashTagUtil;
 
 public class BinaryJedisCluster implements BinaryJedisClusterCommands,
     MultiKeyBinaryJedisClusterCommands, JedisClusterBinaryScriptingCommands, Closeable {
@@ -61,6 +65,19 @@ public class BinaryJedisCluster implements BinaryJedisClusterCommands,
   public BinaryJedisCluster(Set<HostAndPort> jedisClusterNode, int connectionTimeout, int soTimeout, int maxAttempts, String password, String clientName, GenericObjectPoolConfig poolConfig) {
     this.connectionHandler = new JedisSlotBasedConnectionHandler(jedisClusterNode, poolConfig,
             connectionTimeout, soTimeout, password, clientName);
+    this.maxAttempts = maxAttempts;
+  }
+  
+  public BinaryJedisCluster(Set<HostAndPort> jedisClusterNode, int connectionTimeout, int soTimeout, int maxAttempts, String password, String clientName, GenericObjectPoolConfig poolConfig,
+                            boolean ssl) {
+    this(jedisClusterNode, connectionTimeout, soTimeout, maxAttempts, password, clientName, poolConfig, ssl, null, null, null, null);
+  }
+  
+  public BinaryJedisCluster(Set<HostAndPort> jedisClusterNode, int connectionTimeout, int soTimeout, int maxAttempts, String password, String clientName, GenericObjectPoolConfig poolConfig,
+                            boolean ssl, SSLSocketFactory sslSocketFactory, SSLParameters sslParameters, 
+                            HostnameVerifier hostnameVerifier, JedisClusterHostAndPortMap hostAndPortMap) {
+    this.connectionHandler = new JedisSlotBasedConnectionHandler(jedisClusterNode, poolConfig,
+            connectionTimeout, soTimeout, password, clientName, ssl, sslSocketFactory, sslParameters, hostnameVerifier, hostAndPortMap);
     this.maxAttempts = maxAttempts;
   }
 
@@ -1344,23 +1361,23 @@ public class BinaryJedisCluster implements BinaryJedisClusterCommands,
   }
 
   @Override
-  public Object eval(final byte[] script, final byte[] sampleKey) {
+  public Object eval(final byte[] script, final byte[] key) {
     return new JedisClusterCommand<Object>(connectionHandler, maxAttempts) {
       @Override
       public Object execute(Jedis connection) {
         return connection.eval(script);
       }
-    }.runBinary(sampleKey);
+    }.runBinary(key);
   }
 
   @Override
-  public Object evalsha(final byte[] sha1, final byte[] sampleKey) {
+  public Object evalsha(final byte[] sha1, final byte[] key) {
     return new JedisClusterCommand<Object>(connectionHandler, maxAttempts) {
       @Override
       public Object execute(Jedis connection) {
         return connection.evalsha(sha1);
       }
-    }.runBinary(sampleKey);
+    }.runBinary(key);
   }
 
   @Override
@@ -1384,43 +1401,43 @@ public class BinaryJedisCluster implements BinaryJedisClusterCommands,
   }
 
   @Override
-  public List<Long> scriptExists(final byte[] sampleKey, final byte[]... sha1) {
+  public List<Long> scriptExists(final byte[] key, final byte[][] sha1) {
     return new JedisClusterCommand<List<Long>>(connectionHandler, maxAttempts) {
       @Override
       public List<Long> execute(Jedis connection) {
         return connection.scriptExists(sha1);
       }
-    }.runBinary(sampleKey);
+    }.runBinary(key);
   }
 
   @Override
-  public byte[] scriptLoad(final byte[] script, final byte[] sampleKey) {
+  public byte[] scriptLoad(final byte[] script, final byte[] key) {
     return new JedisClusterCommand<byte[]>(connectionHandler, maxAttempts) {
       @Override
       public byte[] execute(Jedis connection) {
         return connection.scriptLoad(script);
       }
-    }.runBinary(sampleKey);
+    }.runBinary(key);
   }
 
   @Override
-  public String scriptFlush(final byte[] sampleKey) {
+  public String scriptFlush(final byte[] key) {
     return new JedisClusterCommand<String>(connectionHandler, maxAttempts) {
       @Override
       public String execute(Jedis connection) {
         return connection.scriptFlush();
       }
-    }.runBinary(sampleKey);
+    }.runBinary(key);
   }
 
   @Override
-  public String scriptKill(final byte[] sampleKey) {
+  public String scriptKill(final byte[] key) {
     return new JedisClusterCommand<String>(connectionHandler, maxAttempts) {
       @Override
       public String execute(Jedis connection) {
         return connection.scriptKill();
       }
-    }.runBinary(sampleKey);
+    }.runBinary(key);
   }
 
   @Override

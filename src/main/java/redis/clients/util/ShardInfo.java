@@ -1,4 +1,4 @@
-package redis.clients.jedis.util;
+package redis.clients.util;
 
 public abstract class ShardInfo<T> {
   private int weight;
