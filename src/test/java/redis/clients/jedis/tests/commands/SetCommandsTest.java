@@ -17,8 +17,6 @@ import org.junit.Test;
 
 import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
-import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
-import static redis.clients.jedis.ScanParams.SCAN_POINTER_START_BINARY;
 
 public class SetCommandsTest extends JedisCommandTestBase {
   final byte[] bfoo = { 0x01, 0x02, 0x03, 0x04 };
@@ -509,7 +507,7 @@ public class SetCommandsTest extends JedisCommandTestBase {
 
     ScanResult<String> result = jedis.sscan("foo", SCAN_POINTER_START);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary
@@ -529,7 +527,7 @@ public class SetCommandsTest extends JedisCommandTestBase {
     jedis.sadd("foo", "b", "a", "aa");
     ScanResult<String> result = jedis.sscan("foo", SCAN_POINTER_START, params);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary

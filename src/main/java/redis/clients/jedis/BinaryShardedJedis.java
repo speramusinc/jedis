@@ -6,11 +6,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import redis.clients.jedis.BinaryClient.LIST_POSITION;
+import redis.clients.jedis.commands.BinaryJedisCommands;
 import redis.clients.jedis.exceptions.JedisConnectionException;
-import redis.clients.jedis.params.geo.GeoRadiusParam;
-import redis.clients.jedis.params.sortedset.ZAddParams;
-import redis.clients.jedis.params.sortedset.ZIncrByParams;
+import redis.clients.jedis.params.GeoRadiusParam;
+import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.params.ZAddParams;
+import redis.clients.jedis.params.ZIncrByParams;
 import redis.clients.util.Hashing;
 import redis.clients.util.Sharded;
 
@@ -60,15 +61,9 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   }
 
   @Override
-  public String set(byte[] key, byte[] value, byte[] nxxx) {
+  public String set(final byte[] key, final byte[] value, SetParams params) {
     Jedis j = getShard(key);
-    return j.set(key, value, nxxx);
-  }
-
-  @Override
-  public String set(byte[] key, byte[] value, byte[] nxxx, byte[] expx, long time) {
-    Jedis j = getShard(key);
-    return j.set(key, value, nxxx, expx, time);
+    return j.set(key, value, params);
   }
 
   @Override
@@ -90,6 +85,18 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   }
 
   @Override
+  public byte[] dump(final byte[] key) {
+    Jedis j = getShard(key);
+    return j.dump(key);
+  }
+
+  @Override
+  public String restore(final byte[] key, final int ttl, final byte[] serializedValue) {
+    Jedis j = getShard(key);
+    return j.restore(key, ttl, serializedValue);
+  }
+
+  @Override
   public Long expire(final byte[] key, final int seconds) {
     Jedis j = getShard(key);
     return j.expire(key, seconds);
@@ -97,12 +104,6 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
 
   @Override
   public Long pexpire(final byte[] key, final long milliseconds) {
-    Jedis j = getShard(key);
-    return j.pexpire(key, milliseconds);
-  }
-
-  @Deprecated
-  public Long pexpire(String key, final long milliseconds) {
     Jedis j = getShard(key);
     return j.pexpire(key, milliseconds);
   }
@@ -132,6 +133,12 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   }
 
   @Override
+  public Long touch(final byte[] key) {
+    Jedis j = getShard(key);
+    return j.touch(key);
+  }
+
+  @Override
   public byte[] getSet(final byte[] key, final byte[] value) {
     Jedis j = getShard(key);
     return j.getSet(key, value);
@@ -150,6 +157,12 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   }
 
   @Override
+  public String psetex(final byte[] key, final long milliseconds, final byte[] value) {
+    Jedis j = getShard(key);
+    return j.psetex(key, milliseconds, value);
+  }
+
+  @Override
   public Long decrBy(final byte[] key, final long decrement) {
     Jedis j = getShard(key);
     return j.decrBy(key, decrement);
@@ -165,6 +178,12 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   public Long del(final byte[] key) {
     Jedis j = getShard(key);
     return j.del(key);
+  }
+
+  @Override
+  public Long unlink(final byte[] key) {
+    Jedis j = getShard(key);
+    return j.unlink(key);
   }
 
   @Override
@@ -201,6 +220,12 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   public Long hset(final byte[] key, final byte[] field, final byte[] value) {
     Jedis j = getShard(key);
     return j.hset(key, field, value);
+  }
+
+  @Override
+  public Long hset(final byte[] key, final Map<byte[], byte[]> hash) {
+    Jedis j = getShard(key);
+    return j.hset(key, hash);
   }
 
   @Override
@@ -683,22 +708,9 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
   }
 
   @Override
-  public Long linsert(final byte[] key, final LIST_POSITION where, final byte[] pivot, final byte[] value) {
+  public Long linsert(final byte[] key, final ListPosition where, final byte[] pivot, final byte[] value) {
     Jedis j = getShard(key);
     return j.linsert(key, where, pivot, value);
-  }
-
-  @Deprecated
-  /**
-   * This method is deprecated due to its error prone with multi
-   * and will be removed on next major release
-   * You can use pipelined() instead
-   * @see https://github.com/xetorthio/jedis/pull/498
-   */
-  public List<Object> pipelined(ShardedJedisPipeline shardedJedisPipeline) {
-    shardedJedisPipeline.setShardedJedis(this);
-    shardedJedisPipeline.execute();
-    return shardedJedisPipeline.getResults();
   }
 
   public ShardedJedisPipeline pipelined() {
@@ -903,5 +915,11 @@ public class BinaryShardedJedis extends Sharded<Jedis, JedisShardInfo> implement
     Jedis j = getShard(key);
     return j.bitfield(key, arguments);
  }
+
+  @Override
+  public Long hstrlen(final byte[] key, final byte[] field) {
+    Jedis j = getShard(key);
+    return j.hstrlen(key, field);
+  }
   
 }

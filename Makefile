@@ -218,6 +218,21 @@ pid = /tmp/stunnel.pid
 [redis]
 accept = 127.0.0.1:6390
 connect = 127.0.0.1:6379
+[redis_cluster_1]
+accept = 127.0.0.1:8379
+connect = 127.0.0.1:7379
+[redis_cluster_2]
+accept = 127.0.0.1:8380
+connect = 127.0.001:7380
+[redis_cluster_3]
+accept = 127.0.0.1:8381
+connect = 127.0.001:7381
+[redis_cluster_4]
+accept = 127.0.0.1:8382
+connect = 127.0.0.1:7382
+[redis_cluster_5]
+accept = 127.0.0.1:8383
+connect = 127.0.0.1:7383
 endef
 
 export REDIS1_CONF
@@ -301,19 +316,16 @@ stop:
 	rm -f /tmp/redis_cluster_node4.conf
 	rm -f /tmp/redis_cluster_node5.conf
 
-test:
-	make start
+test: compile-module start
 	sleep 2
 	mvn -Dtest=${SKIP_SSL}${TEST} clean compile test
 	make stop
 
-package:
-	make start
+package: start
 	mvn clean package
 	make stop
 
-deploy:
-	make start
+deploy: start
 	mvn clean deploy
 	make stop
 
@@ -331,4 +343,9 @@ travis-install:
 	[ ! -e redis-git ] && git clone https://github.com/antirez/redis.git --branch unstable --single-branch redis-git || true
 	$(MAKE) -C redis-git clean
 	$(MAKE) -C redis-git -j4
+
+compile-module:
+	gcc -shared -o /tmp/testmodule.so -fPIC src/test/resources/testmodule.c
+
+
 .PHONY: test

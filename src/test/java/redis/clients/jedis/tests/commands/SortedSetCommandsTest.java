@@ -20,11 +20,9 @@ import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
 import redis.clients.jedis.Tuple;
 import redis.clients.jedis.ZParams;
-import redis.clients.jedis.params.sortedset.ZAddParams;
-import redis.clients.jedis.params.sortedset.ZIncrByParams;
+import redis.clients.jedis.params.ZAddParams;
+import redis.clients.jedis.params.ZIncrByParams;
 import redis.clients.util.SafeEncoder;
-import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
-import static redis.clients.jedis.ScanParams.SCAN_POINTER_START_BINARY;
 
 public class SortedSetCommandsTest extends JedisCommandTestBase {
   final byte[] bfoo = { 0x01, 0x02, 0x03, 0x04 };
@@ -33,16 +31,15 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
   final byte[] ba = { 0x0A };
   final byte[] bb = { 0x0B };
   final byte[] bc = { 0x0C };
-
-  final byte[] bbar1 = { 0x05, 0x06, 0x07, 0x08, 0x0A };
-  final byte[] bbar2 = { 0x05, 0x06, 0x07, 0x08, 0x0B };
-  final byte[] bbar3 = { 0x05, 0x06, 0x07, 0x08, 0x0C };
-
-  final byte[] bbarstar = { 0x05, 0x06, 0x07, 0x08, '*' };
   final byte[] bInclusiveB = { 0x5B, 0x0B };
   final byte[] bExclusiveC = { 0x28, 0x0C };
   final byte[] bLexMinusInf = { 0x2D };
   final byte[] bLexPlusInf = { 0x2B };
+
+  final byte[] bbar1 = { 0x05, 0x06, 0x07, 0x08, 0x0A };
+  final byte[] bbar2 = { 0x05, 0x06, 0x07, 0x08, 0x0B };
+  final byte[] bbar3 = { 0x05, 0x06, 0x07, 0x08, 0x0C };
+  final byte[] bbarstar = { 0x05, 0x06, 0x07, 0x08, '*' };
 
   @Test
   public void zadd() {
@@ -1019,7 +1016,7 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
     jedis.zadd("bar", 2, "b");
 
     ZParams params = new ZParams();
-    params.weightsByDouble(2, 2.5);
+    params.weights(2, 2.5);
     params.aggregate(ZParams.Aggregate.SUM);
     long result = jedis.zunionstore("dst", params, "foo", "bar");
 
@@ -1038,7 +1035,7 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
     jedis.zadd(bbar, 2, bb);
 
     ZParams bparams = new ZParams();
-    bparams.weightsByDouble(2, 2.5);
+    bparams.weights(2, 2.5);
     bparams.aggregate(ZParams.Aggregate.SUM);
     long bresult = jedis.zunionstore(SafeEncoder.encode("dst"), bparams, bfoo, bbar);
 
@@ -1088,7 +1085,7 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
     jedis.zadd("bar", 2, "a");
 
     ZParams params = new ZParams();
-    params.weightsByDouble(2, 2.5);
+    params.weights(2, 2.5);
     params.aggregate(ZParams.Aggregate.SUM);
     long result = jedis.zinterstore("dst", params, "foo", "bar");
 
@@ -1105,7 +1102,7 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
     jedis.zadd(bbar, 2, ba);
 
     ZParams bparams = new ZParams();
-    bparams.weightsByDouble(2, 2.5);
+    bparams.weights(2, 2.5);
     bparams.aggregate(ZParams.Aggregate.SUM);
     long bresult = jedis.zinterstore(SafeEncoder.encode("dst"), bparams, bfoo, bbar);
 
@@ -1124,7 +1121,7 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
 
     ScanResult<Tuple> result = jedis.zscan("foo", SCAN_POINTER_START);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary
@@ -1147,7 +1144,7 @@ public class SortedSetCommandsTest extends JedisCommandTestBase {
     jedis.zadd("foo", 11, "aa");
     ScanResult<Tuple> result = jedis.zscan("foo", SCAN_POINTER_START, params);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary

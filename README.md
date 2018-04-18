@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/xetorthio/jedis.png?branch=master)](https://travis-ci.org/xetorthio/jedis)
+[![Maven Central](https://img.shields.io/maven-central/v/redis.clients/jedis.svg)](http://mvnrepository.com/artifact/redis.clients/jedis)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE.txt)
 
 # Jedis
 
@@ -6,7 +8,7 @@ Jedis is a blazingly small and sane [Redis](http://github.com/antirez/redis "Red
 
 Jedis was conceived to be EASY to use.
 
-Jedis is fully compatible with Redis 2.8.5.
+Jedis is fully compatible with redis 2.8.x and 3.x.x.
 
 ## Community
 
@@ -48,7 +50,7 @@ Or use it as a maven dependency:
 <dependency>
     <groupId>redis.clients</groupId>
     <artifactId>jedis</artifactId>
-    <version>2.6.0</version>
+    <version>2.9.0</version>
     <type>jar</type>
     <scope>compile</scope>
 </dependency>
@@ -66,6 +68,8 @@ For more usage examples check the tests.
 
 Please check the [wiki](http://github.com/xetorthio/jedis/wiki "wiki"). There are lots of cool things you should know, including information about connection pooling.
 
+Master branch javadocs can be found here: http://xetorthio.github.io/jedis/
+
 And you are done!
 
 ## Jedis Cluster
@@ -81,22 +85,31 @@ jc.set("foo", "bar");
 String value = jc.get("foo");
 ```
 
+## FAQ
+
+- Do you have strange stack traces?
+- You're getting errors when running jedis in multi-threaded environments?
+- Do you need further instructions about pipelining, transactions or sentinel?
+
+Please check the [WIKI](https://github.com/xetorthio/jedis/wiki) for more useful information.
+
+
 ## I want to contribute!
 
-That is great! Just fork the project in github. Create a topic branch, write some code, and add some tests for your new code.
+That is great!
 
-To run the tests:
-
-- Use the latest redis master branch.
-
-- Run ```make test```. This will run 2 instances of redis. We use 2 redis
-	servers, one on default port (6379) and the other one on (6380). Both have
-	authentication enabled with default password (foobared). This way we can
-	test both sharding and auth command. For the Sentinel tests to we use a
-	default Sentinel configuration that is configured to properly authenticate
-	using the same password with a master called mymaster running on 6379.
+Please see [CONTRIBUTING.md](https://github.com/xetorthio/jedis/blob/master/.github/CONTRIBUTING.md) on project's root directory for follow up how to contribute to Jedis project.
 
 Thanks for helping!
+
+## Sponsorship
+
+YourKit supports open source projects with its full-featured Java Profiler.
+YourKit, LLC is the creator of [YourKit Java Profiler](http://www.yourkit.com/java/profiler/index.jsp) 
+and [YourKit .NET Profiler](http://www.yourkit.com/.net/profiler/index.jsp),
+innovative and intelligent tools for profiling Java and .NET applications.
+
+![YourKit Logo](https://cloud.githubusercontent.com/assets/1317309/4507430/7119527c-4b0c-11e4-9245-d72e751e26ee.png)
 
 ## License
 

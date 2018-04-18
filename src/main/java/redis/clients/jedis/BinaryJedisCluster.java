@@ -1,34 +1,41 @@
 package redis.clients.jedis;
 
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import redis.clients.jedis.exceptions.JedisClusterException;
-import redis.clients.jedis.params.geo.GeoRadiusParam;
-import redis.clients.jedis.params.sortedset.ZAddParams;
-import redis.clients.jedis.params.sortedset.ZIncrByParams;
+import redis.clients.jedis.commands.BinaryJedisClusterCommands;
+import redis.clients.jedis.commands.JedisClusterBinaryScriptingCommands;
+import redis.clients.jedis.commands.MultiKeyBinaryJedisClusterCommands;
+import redis.clients.jedis.params.GeoRadiusParam;
+import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.params.ZAddParams;
+import redis.clients.jedis.params.ZIncrByParams;
 import redis.clients.util.KeyMergeUtil;
 import redis.clients.util.SafeEncoder;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocketFactory;
+
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import redis.clients.util.JedisClusterHashTagUtil;
 
-public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterCommands,
+public class BinaryJedisCluster implements BinaryJedisClusterCommands,
     MultiKeyBinaryJedisClusterCommands, JedisClusterBinaryScriptingCommands, Closeable {
 
-  public static final short HASHSLOTS = 16384;
+  public static final int HASHSLOTS = 16384;
   protected static final int DEFAULT_TIMEOUT = 2000;
-  protected static final int DEFAULT_MAX_REDIRECTIONS = 5;
+  protected static final int DEFAULT_MAX_ATTEMPTS = 5;
 
   protected int maxAttempts;
 
   protected JedisClusterConnectionHandler connectionHandler;
 
   public BinaryJedisCluster(Set<HostAndPort> nodes, int timeout) {
-    this(nodes, timeout, DEFAULT_MAX_REDIRECTIONS, new GenericObjectPoolConfig());
+    this(nodes, timeout, DEFAULT_MAX_ATTEMPTS, new GenericObjectPoolConfig());
   }
 
   public BinaryJedisCluster(Set<HostAndPort> nodes) {
@@ -43,7 +50,7 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
   }
 
   public BinaryJedisCluster(Set<HostAndPort> jedisClusterNode, int connectionTimeout,
-      int soTimeout, int maxAttempts, final GenericObjectPoolConfig poolConfig) {
+                            int soTimeout, int maxAttempts, final GenericObjectPoolConfig poolConfig) {
     this.connectionHandler = new JedisSlotBasedConnectionHandler(jedisClusterNode, poolConfig,
         connectionTimeout, soTimeout);
     this.maxAttempts = maxAttempts;
@@ -60,9 +67,22 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
             connectionTimeout, soTimeout, password, clientName);
     this.maxAttempts = maxAttempts;
   }
+  
+  public BinaryJedisCluster(Set<HostAndPort> jedisClusterNode, int connectionTimeout, int soTimeout, int maxAttempts, String password, String clientName, GenericObjectPoolConfig poolConfig,
+                            boolean ssl) {
+    this(jedisClusterNode, connectionTimeout, soTimeout, maxAttempts, password, clientName, poolConfig, ssl, null, null, null, null);
+  }
+  
+  public BinaryJedisCluster(Set<HostAndPort> jedisClusterNode, int connectionTimeout, int soTimeout, int maxAttempts, String password, String clientName, GenericObjectPoolConfig poolConfig,
+                            boolean ssl, SSLSocketFactory sslSocketFactory, SSLParameters sslParameters, 
+                            HostnameVerifier hostnameVerifier, JedisClusterHostAndPortMap hostAndPortMap) {
+    this.connectionHandler = new JedisSlotBasedConnectionHandler(jedisClusterNode, poolConfig,
+            connectionTimeout, soTimeout, password, clientName, ssl, sslSocketFactory, sslParameters, hostnameVerifier, hostAndPortMap);
+    this.maxAttempts = maxAttempts;
+  }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     if (connectionHandler != null) {
       connectionHandler.close();
     }
@@ -70,6 +90,10 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
 
   public Map<String, JedisPool> getClusterNodes() {
     return connectionHandler.getNodes();
+  }
+
+  public Jedis getConnectionFromSlot(int slot) {
+	  return  this.connectionHandler.getConnectionFromSlot(slot);
   }
 
   @Override
@@ -83,12 +107,11 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
   }
 
   @Override
-  public String set(final byte[] key, final byte[] value, final byte[] nxxx, final byte[] expx,
-      final long time) {
+  public String set(final byte[] key, final byte[] value, final SetParams params) {
     return new JedisClusterCommand<String>(connectionHandler, maxAttempts) {
       @Override
       public String execute(Jedis connection) {
-        return connection.set(key, value, nxxx, expx, time);
+        return connection.set(key, value, params);
       }
     }.runBinary(key);
   }
@@ -104,16 +127,6 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
   }
 
   @Override
-  public Boolean exists(final byte[] key) {
-    return new JedisClusterCommand<Boolean>(connectionHandler, maxAttempts) {
-      @Override
-      public Boolean execute(Jedis connection) {
-        return connection.exists(key);
-      }
-    }.runBinary(key);
-  }
-
-  @Override
   public Long exists(final byte[]... keys) {
     return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
       @Override
@@ -121,6 +134,16 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
         return connection.exists(keys);
       }
     }.runBinary(keys.length, keys);
+  }
+
+  @Override
+  public Boolean exists(final byte[] key) {
+    return new JedisClusterCommand<Boolean>(connectionHandler, maxAttempts) {
+      @Override
+      public Boolean execute(Jedis connection) {
+        return connection.exists(key);
+      }
+    }.runBinary(key);
   }
 
   @Override
@@ -139,6 +162,26 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
       @Override
       public String execute(Jedis connection) {
         return connection.type(key);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public byte[] dump(final byte[] key) {
+    return new JedisClusterCommand<byte[]>(connectionHandler, maxAttempts) {
+      @Override
+      public byte[] execute(Jedis connection) {
+        return connection.dump(key);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public String restore(final byte[] key, final int ttl, final byte[] serializedValue) {
+    return new JedisClusterCommand<String>(connectionHandler, maxAttempts) {
+      @Override
+      public String execute(Jedis connection) {
+        return connection.restore(key, ttl, serializedValue);
       }
     }.runBinary(key);
   }
@@ -201,6 +244,26 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
         return connection.pttl(key);
       }
     }.runBinary(key);
+  }
+
+  @Override
+  public Long touch(final byte[] key) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.touch(key);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public Long touch(final byte[]... keys) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.touch(keys);
+      }
+    }.runBinary(keys.length, keys);
   }
 
   @Override
@@ -269,6 +332,16 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
       @Override
       public Long execute(Jedis connection) {
         return connection.setnx(key, value);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public String psetex(final byte[] key, final long milliseconds, final byte[] value) {
+    return new JedisClusterCommand<String>(connectionHandler, maxAttempts) {
+      @Override
+      public String execute(Jedis connection) {
+        return connection.psetex(key, milliseconds, value);
       }
     }.runBinary(key);
   }
@@ -359,6 +432,16 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
       @Override
       public Long execute(Jedis connection) {
         return connection.hset(key, field, value);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public Long hset(final byte[] key, final Map<byte[], byte[]> hash) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.hset(key, hash);
       }
     }.runBinary(key);
   }
@@ -684,22 +767,22 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
   }
 
   @Override
-  public Long zadd(final byte[] key, final Map<byte[], Double> scoreMembers) {
-    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
-      @Override
-      public Long execute(Jedis connection) {
-        return connection.zadd(key, scoreMembers);
-      }
-    }.runBinary(key);
-  }
-
-  @Override
   public Long zadd(final byte[] key, final double score, final byte[] member,
       final ZAddParams params) {
     return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
       @Override
       public Long execute(Jedis connection) {
         return connection.zadd(key, score, member, params);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public Long zadd(final byte[] key, final Map<byte[], Double> scoreMembers) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.zadd(key, scoreMembers);
       }
     }.runBinary(key);
   }
@@ -1064,7 +1147,7 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
   }
 
   @Override
-  public Long linsert(final byte[] key, final Client.LIST_POSITION where, final byte[] pivot,
+  public Long linsert(final byte[] key, final ListPosition where, final byte[] pivot,
       final byte[] value) {
     return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
       @Override
@@ -1102,6 +1185,26 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
         return connection.del(key);
       }
     }.runBinary(key);
+  }
+
+  @Override
+  public Long unlink(final byte[] key) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.unlink(key);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public Long unlink(final byte[]... keys) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.unlink(keys);
+      }
+    }.runBinary(keys.length, keys);
   }
 
   @Override
@@ -1659,210 +1762,6 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
     }.runBinary(keys.length, keys);
   }
 
-  /*
-   * below methods will be removed at 3.0
-   */
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String ping() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String quit() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String flushDB() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster and Redis Cluster only uses
-   *             db index 0 scheduled to be removed on next major release
-   */
-  @Deprecated
-  @Override
-  public Long dbSize() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster and Redis Cluster only uses
-   *             db index 0 scheduled to be removed on next major release
-   */
-  @Deprecated
-  @Override
-  public String select(int index) {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String flushAll() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster and Redis Cluster doesn't
-   *             support authorization scheduled to be removed on next major release
-   */
-  @Deprecated
-  @Override
-  public String auth(String password) {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String save() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String bgsave() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String bgrewriteaof() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public Long lastsave() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String shutdown() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String info() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String info(String section) {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String slaveof(String host, int port) {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String slaveofNoOne() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster and Redis Cluster only uses
-   *             db index 0 scheduled to be removed on next major release
-   */
-  @Deprecated
-  @Override
-  public Long getDB() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String debug(DebugParams params) {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public String configResetStat() {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
-  /**
-   * @deprecated No key operation doesn't make sense for Redis Cluster scheduled to be removed on
-   *             next major release
-   */
-  @Deprecated
-  @Override
-  public Long waitReplicas(int replicas, long timeout) {
-    throw new JedisClusterException("No way to dispatch this command to Redis Cluster.");
-  }
-
   @Override
   public Long geoadd(final byte[] key, final double longitude, final double latitude,
       final byte[] member) {
@@ -1968,13 +1867,31 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
       }
     }.runBinary(key);
   }
-  
+
+  @Override
+  public Set<byte[]> keys(final byte[] pattern) {
+    if (pattern == null || pattern.length == 0) {
+      throw new IllegalArgumentException(this.getClass().getSimpleName()
+          + " only supports KEYS commands with non-empty patterns");
+    }
+    if (!JedisClusterHashTagUtil.isClusterCompliantMatchPattern(pattern)) {
+      throw new IllegalArgumentException(this.getClass().getSimpleName()
+          + " only supports KEYS commands with patterns containing hash-tags ( curly-brackets enclosed strings )");
+    }
+    return new JedisClusterCommand<Set<byte[]>>(connectionHandler, maxAttempts) {
+      @Override
+      public Set<byte[]> execute(Jedis connection) {
+        return connection.keys(pattern);
+      }
+    }.runBinary(pattern);
+  }
+
   @Override
   public ScanResult<byte[]> scan(final byte[] cursor, final ScanParams params) {
 
-    String matchPattern = null;
+    byte[] matchPattern = null;
 
-    if (params == null || (matchPattern = params.match()) == null || matchPattern.isEmpty()) {
+    if (params == null || (matchPattern = params.binaryMatch()) == null || matchPattern.length == 0) {
       throw new IllegalArgumentException(BinaryJedisCluster.class.getSimpleName()
           + " only supports SCAN commands with non-empty MATCH patterns");
     }
@@ -1989,13 +1906,13 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
       public ScanResult<byte[]> execute(Jedis connection) {
         return connection.scan(cursor, params);
       }
-    }.runBinary(SafeEncoder.encode(matchPattern));
+    }.runBinary(matchPattern);
   }
   
   @Override
   public ScanResult<Map.Entry<byte[], byte[]>> hscan(final byte[] key, final byte[] cursor) {
     return new JedisClusterCommand<ScanResult<Map.Entry<byte[], byte[]>>>(connectionHandler,
-        maxAttempts) {
+                                                                          maxAttempts) {
       @Override
       public ScanResult<Map.Entry<byte[], byte[]>> execute(Jedis connection) {
         return connection.hscan(key, cursor);
@@ -2007,7 +1924,7 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
   public ScanResult<Map.Entry<byte[], byte[]>> hscan(final byte[] key, final byte[] cursor,
       final ScanParams params) {
     return new JedisClusterCommand<ScanResult<Map.Entry<byte[], byte[]>>>(connectionHandler,
-        maxAttempts) {
+                                                                          maxAttempts) {
       @Override
       public ScanResult<Map.Entry<byte[], byte[]>> execute(Jedis connection) {
         return connection.hscan(key, cursor, params);
@@ -2061,6 +1978,16 @@ public class BinaryJedisCluster implements BasicCommands, BinaryJedisClusterComm
       @Override
       public List<Long> execute(Jedis connection) {
         return connection.bitfield(key, arguments);
+      }
+    }.runBinary(key);
+  }
+
+  @Override
+  public Long hstrlen(final byte[] key, final byte[] field) {
+    return new JedisClusterCommand<Long>(connectionHandler, maxAttempts) {
+      @Override
+      public Long execute(Jedis connection) {
+        return connection.hstrlen(key, field);
       }
     }.runBinary(key);
   }

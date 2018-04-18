@@ -13,7 +13,7 @@ import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
-import redis.clients.jedis.Protocol.Command;
+import redis.clients.jedis.commands.ProtocolCommand;
 import redis.clients.jedis.exceptions.JedisConnectionException;
 import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.util.IOUtils;
@@ -30,7 +30,6 @@ public class Connection implements Closeable {
   private Socket socket;
   private RedisOutputStream outputStream;
   private RedisInputStream inputStream;
-  private int pipelinedCommands = 0;
   private int connectionTimeout = Protocol.DEFAULT_TIMEOUT;
   private int soTimeout = Protocol.DEFAULT_TIMEOUT;
   private boolean broken = false;
@@ -109,24 +108,22 @@ public class Connection implements Closeable {
     }
   }
 
-  protected Connection sendCommand(final Command cmd, final String... args) {
+  public void sendCommand(final ProtocolCommand cmd, final String... args) {
     final byte[][] bargs = new byte[args.length][];
     for (int i = 0; i < args.length; i++) {
       bargs[i] = SafeEncoder.encode(args[i]);
     }
-    return sendCommand(cmd, bargs);
+    sendCommand(cmd, bargs);
   }
 
-  protected Connection sendCommand(final Command cmd) {
-    return sendCommand(cmd, EMPTY_ARGS);
+  public void sendCommand(final ProtocolCommand cmd) {
+    sendCommand(cmd, EMPTY_ARGS);
   }
 
-  protected Connection sendCommand(final Command cmd, final byte[]... args) {
+  public void sendCommand(final ProtocolCommand cmd, final byte[]... args) {
     try {
       connect();
       Protocol.sendCommand(outputStream, cmd, args);
-      pipelinedCommands++;
-      return this;
     } catch (JedisConnectionException ex) {
       /*
        * When client send request which formed by invalid protocol, Redis send back error message
@@ -188,7 +185,7 @@ public class Connection implements Closeable {
           if (null == sslSocketFactory) {
             sslSocketFactory = (SSLSocketFactory)SSLSocketFactory.getDefault();
           }
-          socket = (SSLSocket) sslSocketFactory.createSocket(socket, host, port, true);
+          socket = sslSocketFactory.createSocket(socket, host, port, true);
           if (null != sslParameters) {
             ((SSLSocket) socket).setSSLParameters(sslParameters);
           }
@@ -236,7 +233,6 @@ public class Connection implements Closeable {
 
   public String getStatusCodeReply() {
     flush();
-    pipelinedCommands--;
     final byte[] resp = (byte[]) readProtocolWithCheckingBroken();
     if (null == resp) {
       return null;
@@ -256,13 +252,11 @@ public class Connection implements Closeable {
 
   public byte[] getBinaryBulkReply() {
     flush();
-    pipelinedCommands--;
     return (byte[]) readProtocolWithCheckingBroken();
   }
 
   public Long getIntegerReply() {
     flush();
-    pipelinedCommands--;
     return (Long) readProtocolWithCheckingBroken();
   }
 
@@ -273,18 +267,12 @@ public class Connection implements Closeable {
   @SuppressWarnings("unchecked")
   public List<byte[]> getBinaryMultiBulkReply() {
     flush();
-    pipelinedCommands--;
     return (List<byte[]>) readProtocolWithCheckingBroken();
-  }
-
-  public void resetPipelinedCount() {
-    pipelinedCommands = 0;
   }
 
   @SuppressWarnings("unchecked")
   public List<Object> getRawObjectMultiBulkReply() {
     flush();
-    pipelinedCommands--;
     return (List<Object>) readProtocolWithCheckingBroken();
   }
 
@@ -295,31 +283,11 @@ public class Connection implements Closeable {
   @SuppressWarnings("unchecked")
   public List<Long> getIntegerMultiBulkReply() {
     flush();
-    pipelinedCommands--;
     return (List<Long>) readProtocolWithCheckingBroken();
-  }
-
-  public List<Object> getAll() {
-    return getAll(0);
-  }
-
-  public List<Object> getAll(int except) {
-    List<Object> all = new ArrayList<Object>();
-    flush();
-    while (pipelinedCommands > except) {
-      try {
-        all.add(readProtocolWithCheckingBroken());
-      } catch (JedisDataException e) {
-        all.add(e);
-      }
-      pipelinedCommands--;
-    }
-    return all;
   }
 
   public Object getOne() {
     flush();
-    pipelinedCommands--;
     return readProtocolWithCheckingBroken();
   }
 
@@ -343,5 +311,18 @@ public class Connection implements Closeable {
       broken = true;
       throw exc;
     }
+  }
+
+  public List<Object> getMany(final int count) {
+    flush();
+    final List<Object> responses = new ArrayList<Object>(count);
+    for (int i = 0; i < count; i++) {
+      try {
+        responses.add(readProtocolWithCheckingBroken());
+      } catch (JedisDataException e) {
+        responses.add(e);
+      }
+    }
+    return responses;
   }
 }

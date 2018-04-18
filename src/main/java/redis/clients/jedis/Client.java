@@ -1,10 +1,6 @@
 package redis.clients.jedis;
 
-import redis.clients.jedis.JedisCluster.Reset;
-import redis.clients.jedis.params.geo.GeoRadiusParam;
-import redis.clients.jedis.params.sortedset.ZAddParams;
-import redis.clients.jedis.params.sortedset.ZIncrByParams;
-import redis.clients.util.SafeEncoder;
+import static redis.clients.jedis.Protocol.toByteArray;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,7 +12,12 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocketFactory;
 
-import static redis.clients.jedis.Protocol.toByteArray;
+import redis.clients.jedis.commands.Commands;
+import redis.clients.jedis.params.GeoRadiusParam;
+import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.params.ZAddParams;
+import redis.clients.jedis.params.ZIncrByParams;
+import redis.clients.util.SafeEncoder;
 
 public class Client extends BinaryClient implements Commands {
 
@@ -48,10 +49,8 @@ public class Client extends BinaryClient implements Commands {
   }
 
   @Override
-  public void set(final String key, final String value, final String nxxx, final String expx,
-      final long time) {
-    set(SafeEncoder.encode(key), SafeEncoder.encode(value), SafeEncoder.encode(nxxx),
-      SafeEncoder.encode(expx), time);
+  public void set(final String key, final String value, final SetParams params) {
+    set(SafeEncoder.encode(key), SafeEncoder.encode(value), params);
   }
 
   @Override
@@ -60,10 +59,6 @@ public class Client extends BinaryClient implements Commands {
   }
 
   @Override
-  public void exists(final String key) {
-    exists(SafeEncoder.encode(key));
-  }
-
   public void exists(final String... keys) {
     exists(SafeEncoder.encodeMany(keys));
   }
@@ -71,6 +66,11 @@ public class Client extends BinaryClient implements Commands {
   @Override
   public void del(final String... keys) {
     del(SafeEncoder.encodeMany(keys));
+  }
+
+  @Override
+  public void unlink(final String... keys) {
+    unlink(SafeEncoder.encodeMany(keys));
   }
 
   @Override
@@ -106,6 +106,11 @@ public class Client extends BinaryClient implements Commands {
   @Override
   public void ttl(final String key) {
     ttl(SafeEncoder.encode(key));
+  }
+
+  @Override
+  public void touch(final String... keys) {
+    touch(SafeEncoder.encodeMany(keys));
   }
 
   @Override
@@ -176,6 +181,15 @@ public class Client extends BinaryClient implements Commands {
   @Override
   public void hset(final String key, final String field, final String value) {
     hset(SafeEncoder.encode(key), SafeEncoder.encode(field), SafeEncoder.encode(value));
+  }
+
+  @Override
+  public void hset(final String key, final Map<String, String> hash) {
+    final Map<byte[], byte[]> bhash = new HashMap<byte[], byte[]>(hash.size());
+    for (final Entry<String, String> entry : hash.entrySet()) {
+      bhash.put(SafeEncoder.encode(entry.getKey()), SafeEncoder.encode(entry.getValue()));
+    }
+    hset(SafeEncoder.encode(key), bhash);
   }
 
   @Override
@@ -381,13 +395,13 @@ public class Client extends BinaryClient implements Commands {
   @Override
   public void zadd(final String key, final Map<String, Double> scoreMembers) {
     HashMap<byte[], Double> binaryScoreMembers = convertScoreMembersToBinary(scoreMembers);
-    zaddBinary(SafeEncoder.encode(key), binaryScoreMembers);
+    zadd(SafeEncoder.encode(key), binaryScoreMembers);
   }
 
   @Override
   public void zadd(final String key, final Map<String, Double> scoreMembers, final ZAddParams params) {
     HashMap<byte[], Double> binaryScoreMembers = convertScoreMembersToBinary(scoreMembers);
-    zaddBinary(SafeEncoder.encode(key), binaryScoreMembers, params);
+    zadd(SafeEncoder.encode(key), binaryScoreMembers, params);
   }
 
   @Override
@@ -694,7 +708,7 @@ public class Client extends BinaryClient implements Commands {
   }
 
   @Override
-  public void linsert(final String key, final LIST_POSITION where, final String pivot,
+  public void linsert(final String key, final ListPosition where, final String pivot,
       final String value) {
     linsert(SafeEncoder.encode(key), where, SafeEncoder.encode(pivot), SafeEncoder.encode(value));
   }
@@ -833,11 +847,6 @@ public class Client extends BinaryClient implements Commands {
     restore(SafeEncoder.encode(key), ttl, serializedValue);
   }
 
-  @Deprecated
-  public void pexpire(final String key, final int milliseconds) {
-    pexpire(key, (long) milliseconds);
-  }
-
   public void pexpire(final String key, final long milliseconds) {
     pexpire(SafeEncoder.encode(key), milliseconds);
   }
@@ -846,6 +855,7 @@ public class Client extends BinaryClient implements Commands {
     pexpireAt(SafeEncoder.encode(key), millisecondsTimestamp);
   }
 
+  @Override
   public void pttl(final String key) {
     pttl(SafeEncoder.encode(key));
   }
@@ -855,23 +865,8 @@ public class Client extends BinaryClient implements Commands {
     incrByFloat(SafeEncoder.encode(key), increment);
   }
 
-  @Deprecated
-  public void psetex(final String key, final int milliseconds, final String value) {
-    psetex(key, (long) milliseconds, value);
-  }
-
   public void psetex(final String key, final long milliseconds, final String value) {
     psetex(SafeEncoder.encode(key), milliseconds, SafeEncoder.encode(value));
-  }
-
-  public void set(final String key, final String value, final String nxxx) {
-    set(SafeEncoder.encode(key), SafeEncoder.encode(value), SafeEncoder.encode(nxxx));
-  }
-
-  public void set(final String key, final String value, final String nxxx, final String expx,
-      final int time) {
-    set(SafeEncoder.encode(key), SafeEncoder.encode(value), SafeEncoder.encode(nxxx),
-      SafeEncoder.encode(expx), time);
   }
 
   public void srandmember(final String key, final int count) {
@@ -894,36 +889,6 @@ public class Client extends BinaryClient implements Commands {
   @Override
   public void hincrByFloat(final String key, final String field, final double increment) {
     hincrByFloat(SafeEncoder.encode(key), SafeEncoder.encode(field), increment);
-  }
-
-  @Deprecated
-  /**
-   * This method is deprecated due to bug (scan cursor should be unsigned long)
-   * And will be removed on next major release
-   * @see https://github.com/xetorthio/jedis/issues/531 
-   */
-  public void hscan(final String key, int cursor, final ScanParams params) {
-    hscan(SafeEncoder.encode(key), cursor, params);
-  }
-
-  @Deprecated
-  /**
-   * This method is deprecated due to bug (scan cursor should be unsigned long)
-   * And will be removed on next major release
-   * @see https://github.com/xetorthio/jedis/issues/531 
-   */
-  public void sscan(final String key, int cursor, final ScanParams params) {
-    sscan(SafeEncoder.encode(key), cursor, params);
-  }
-
-  @Deprecated
-  /**
-   * This method is deprecated due to bug (scan cursor should be unsigned long)
-   * And will be removed on next major release
-   * @see https://github.com/xetorthio/jedis/issues/531 
-   */
-  public void zscan(final String key, int cursor, final ScanParams params) {
-    zscan(SafeEncoder.encode(key), cursor, params);
   }
 
   @Override
@@ -987,8 +952,8 @@ public class Client extends BinaryClient implements Commands {
     cluster(Protocol.CLUSTER_MEET, ip, String.valueOf(port));
   }
 
-  public void clusterReset(final Reset resetType) {
-    cluster(Protocol.CLUSTER_RESET, resetType.toString());
+  public void clusterReset(final ClusterReset resetType) {
+    cluster(Protocol.CLUSTER_RESET, resetType.name());
   }
 
   public void clusterAddSlots(final int... slots) {
@@ -1120,6 +1085,14 @@ public class Client extends BinaryClient implements Commands {
     georadiusByMember(SafeEncoder.encode(key), SafeEncoder.encode(member), radius, unit, param);
   }
 
+  public void moduleLoad(final String path) {
+    moduleLoad(SafeEncoder.encode(path));
+  }
+
+  public void moduleUnload(final String name) {
+    moduleUnload(SafeEncoder.encode(name));
+  }
+
   private HashMap<byte[], Double> convertScoreMembersToBinary(final Map<String, Double> scoreMembers) {
     HashMap<byte[], Double> binaryScoreMembers = new HashMap<byte[], Double>();
     for (Entry<String, Double> entry : scoreMembers.entrySet()) {
@@ -1140,6 +1113,11 @@ public class Client extends BinaryClient implements Commands {
   @Override
   public void bitfield(final String key, final String... arguments) {
     bitfield(SafeEncoder.encode(key), SafeEncoder.encodeMany(arguments));
+  }
+
+  @Override
+  public void hstrlen(final String key, final String field) {
+    hstrlen(SafeEncoder.encode(key), SafeEncoder.encode(field));
   }
 
 }

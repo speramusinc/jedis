@@ -52,6 +52,14 @@ public class ScanParams {
     return Collections.unmodifiableCollection(paramsList);
   }
 
+  byte[] binaryMatch() {
+    if (params.containsKey(MATCH)) {
+      return params.get(MATCH).array();
+    } else {
+      return null;
+    }
+  }
+
   String match() {
     if (params.containsKey(MATCH)) {
       return new String(params.get(MATCH).array());

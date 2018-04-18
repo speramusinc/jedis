@@ -57,7 +57,7 @@ public class Sharded<R, S extends ShardInfo<R>> {
         nodes.put(this.algo.hash("SHARD-" + i + "-NODE-" + n), shardInfo);
       }
       else for (int n = 0; n < 160 * shardInfo.getWeight(); n++) {
-        nodes.put(this.algo.hash(shardInfo.getName() + "*" + shardInfo.getWeight() + n), shardInfo);
+        nodes.put(this.algo.hash(shardInfo.getName() + "*" + n), shardInfo);
       }
       resources.put(shardInfo, shardInfo.createResource());
     }
@@ -86,6 +86,7 @@ public class Sharded<R, S extends ShardInfo<R>> {
   /**
    * A key tag is a special pattern inside a key that, if preset, is the only part of the key hashed
    * in order to select the server for this key.
+   * @see <a href="http://redis.io/topics/partitioning">partitioning</a>
    * @param key
    * @return The tag if it exists, or the original key
    */

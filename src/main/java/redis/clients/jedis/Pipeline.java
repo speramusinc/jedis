@@ -1,11 +1,10 @@
 package redis.clients.jedis;
 
-import redis.clients.jedis.exceptions.JedisDataException;
-
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import redis.clients.jedis.exceptions.JedisDataException;
 
 public class Pipeline extends MultiKeyPipelineBase implements Closeable {
 
@@ -96,7 +95,7 @@ public class Pipeline extends MultiKeyPipelineBase implements Closeable {
    */
   public void sync() {
     if (getPipelinedResponseLength() > 0) {
-      List<Object> unformatted = client.getAll();
+      List<Object> unformatted = client.getMany(getPipelinedResponseLength());
       for (Object o : unformatted) {
         generateResponse(o);
       }
@@ -111,9 +110,8 @@ public class Pipeline extends MultiKeyPipelineBase implements Closeable {
    */
   public List<Object> syncAndReturnAll() {
     if (getPipelinedResponseLength() > 0) {
-      List<Object> unformatted = client.getAll();
+      List<Object> unformatted = client.getMany(getPipelinedResponseLength());
       List<Object> formatted = new ArrayList<Object>();
-
       for (Object o : unformatted) {
         try {
           formatted.add(generateResponse(o).get());
@@ -129,7 +127,6 @@ public class Pipeline extends MultiKeyPipelineBase implements Closeable {
 
   public Response<String> discard() {
     if (currentMulti == null) throw new JedisDataException("DISCARD without MULTI");
-
     client.discard();
     currentMulti = null;
     return getResponse(BuilderFactory.STRING);
@@ -156,7 +153,8 @@ public class Pipeline extends MultiKeyPipelineBase implements Closeable {
   }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     clear();
   }
+
 }

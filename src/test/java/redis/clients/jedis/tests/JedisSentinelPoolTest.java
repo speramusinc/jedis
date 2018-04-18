@@ -5,8 +5,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.junit.Before;
@@ -39,8 +37,8 @@ public class JedisSentinelPoolTest {
     sentinels.add(sentinel1.toString());
     sentinels.add(sentinel2.toString());
 
-    sentinelJedis1 = new Jedis(sentinel1.getHost(), sentinel1.getPort());
-    sentinelJedis2 = new Jedis(sentinel2.getHost(), sentinel2.getPort());
+    sentinelJedis1 = new Jedis(sentinel1);
+    sentinelJedis2 = new Jedis(sentinel2);
   }
 
   @Test(expected = JedisConnectionException.class)
@@ -70,7 +68,7 @@ public class JedisSentinelPoolTest {
     jedis.auth("foobared");
     jedis.set("foo", "bar");
     assertEquals("bar", jedis.get("foo"));
-    pool.returnResource(jedis);
+    jedis.close();
     pool.close();
     assertTrue(pool.isClosed());
   }
@@ -78,7 +76,7 @@ public class JedisSentinelPoolTest {
   @Test
   public void ensureSafeTwiceFailover() throws InterruptedException {
     JedisSentinelPool pool = new JedisSentinelPool(MASTER_NAME, sentinels,
-        new GenericObjectPoolConfig(), 2000, "foobared", 2);
+        new GenericObjectPoolConfig(), 1000, "foobared", 2);
 
     forceFailover(pool);
     // after failover sentinel needs a bit of time to stabilize before a new
@@ -87,37 +85,6 @@ public class JedisSentinelPoolTest {
     forceFailover(pool);
 
     // you can test failover as much as possible
-  }
-
-  @Test
-  public void returningBorrowedInstanceBeforeFailoverShouldNotAffectBorrowing()
-      throws InterruptedException {
-    final JedisSentinelPool pool = new JedisSentinelPool(MASTER_NAME, sentinels,
-        new GenericObjectPoolConfig(), 2000, "foobared", 2);
-
-    Jedis borrowed = pool.getResource();
-    forceFailover(pool);
-
-    Thread.sleep(1000);
-
-    // returns instance which was borrowed before failover
-    borrowed.close();
-
-    final AtomicBoolean isBorrowed = new AtomicBoolean(false);
-
-    Thread t = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        pool.getResource();
-        isBorrowed.set(true);
-      }
-    });
-    t.start();
-
-    // wait for 5 secs
-    t.join(5000);
-
-    assertTrue(isBorrowed.get());
   }
 
   @Test
@@ -135,7 +102,7 @@ public class JedisSentinelPoolTest {
       jedis.set("hello", "jedis");
       Transaction t = jedis.multi();
       t.set("hello", "world");
-      pool.returnResource(jedis);
+      jedis.close();
 
       jedis2 = pool.getResource();
 
@@ -143,11 +110,10 @@ public class JedisSentinelPoolTest {
       assertEquals("jedis", jedis2.get("hello"));
     } catch (JedisConnectionException e) {
       if (jedis2 != null) {
-        pool.returnBrokenResource(jedis2);
         jedis2 = null;
       }
     } finally {
-      if (jedis2 != null) jedis2.close();
+      jedis2.close();
 
       pool.destroy();
     }
@@ -208,7 +174,7 @@ public class JedisSentinelPoolTest {
     Jedis afterFailoverJedis = pool.getResource();
     assertEquals("PONG", afterFailoverJedis.ping());
     assertEquals("foobared", afterFailoverJedis.configGet("requirepass").get(1));
-    assertEquals(2, afterFailoverJedis.getDB().intValue());
+    assertEquals(2, afterFailoverJedis.getDB());
 
     // returning both connections to the pool should not throw
     beforeFailoverJedis.close();

@@ -6,8 +6,10 @@ import static org.junit.Assert.fail;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import redis.clients.jedis.Connection;
 import redis.clients.jedis.Protocol.Command;
+import redis.clients.jedis.commands.ProtocolCommand;
 import redis.clients.jedis.exceptions.JedisConnectionException;
 
 public class ConnectionTest {
@@ -59,8 +61,8 @@ public class ConnectionTest {
       }
 
       @Override
-      protected Connection sendCommand(Command cmd, byte[]... args) {
-        return super.sendCommand(cmd, args);
+      public void sendCommand(ProtocolCommand cmd, byte[]... args) {
+        super.sendCommand(cmd, args);
       }
     }
 

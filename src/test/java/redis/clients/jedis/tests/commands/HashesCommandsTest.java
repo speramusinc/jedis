@@ -19,11 +19,11 @@ import java.util.Map;
 import java.util.Set;
 
 import org.junit.Test;
+
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
-
 
 public class HashesCommandsTest extends JedisCommandTestBase {
   final byte[] bfoo = { 0x01, 0x02, 0x03, 0x04 };
@@ -112,6 +112,26 @@ public class HashesCommandsTest extends JedisCommandTestBase {
     assertArrayEquals(bcar, jedis.hget(bfoo, bbar));
     assertArrayEquals(bbar, jedis.hget(bfoo, bcar));
 
+  }
+
+  @Test
+  public void hsetVariadic() {
+    Map<String, String> hash = new HashMap<String, String>();
+    hash.put("bar", "car");
+    hash.put("car", "bar");
+    long status = jedis.hset("foo", hash);
+    assertEquals(2, status);
+    assertEquals("car", jedis.hget("foo", "bar"));
+    assertEquals("bar", jedis.hget("foo", "car"));
+
+    // Binary
+    Map<byte[], byte[]> bhash = new HashMap<byte[], byte[]>();
+    bhash.put(bbar, bcar);
+    bhash.put(bcar, bbar);
+    status = jedis.hset(bfoo, bhash);
+    assertEquals(2, status);
+    assertArrayEquals(bcar, jedis.hget(bfoo, bbar));
+    assertArrayEquals(bbar, jedis.hget(bfoo, bcar));
   }
 
   @Test
@@ -349,7 +369,7 @@ public class HashesCommandsTest extends JedisCommandTestBase {
 
     ScanResult<Map.Entry<String, String>> result = jedis.hscan("foo", SCAN_POINTER_START);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary
@@ -371,7 +391,7 @@ public class HashesCommandsTest extends JedisCommandTestBase {
     jedis.hset("foo", "aa", "aa");
     ScanResult<Map.Entry<String, String>> result = jedis.hscan("foo", SCAN_POINTER_START, params);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary
@@ -416,6 +436,31 @@ public class HashesCommandsTest extends JedisCommandTestBase {
       params);
 
     assertFalse(bResult.getResult().isEmpty());
+  }
+
+  @Test
+  public void testHstrLen_EmptyHash() {
+    Long response = jedis.hstrlen("myhash", "k1");
+    assertEquals(0l, response.longValue());
+  }
+
+  @Test
+  public void testHstrLen() {
+    Map<String, String> values = new HashMap<>();
+    values.put("key", "value");
+    jedis.hmset("myhash", values);
+    Long response = jedis.hstrlen("myhash", "key");
+    assertEquals(5l, response.longValue());
+
+  }
+
+  @Test
+  public void testBinaryHstrLen() {
+    Map<byte[], byte[]> values = new HashMap<>();
+    values.put(bbar, bcar);
+    jedis.hmset(bfoo, values);
+    Long response = jedis.hstrlen(bfoo, bbar);
+    assertEquals(4l, response.longValue());
   }
 
 }

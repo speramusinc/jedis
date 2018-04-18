@@ -9,11 +9,13 @@ import java.net.URI;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
@@ -74,12 +76,10 @@ public class SSLJedisTest {
    * It is commented out but not removed in case support for Java 6 is dropped or
    * we find a way to have the CI run a specific set of tests on Java 7 and above.
    */
-  /*
   @Test
   public void connectWithShardInfo() throws Exception {
     final URI uri = URI.create("rediss://localhost:6390");
     final SSLSocketFactory sslSocketFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-    //final SSLSocketFactory sslSocketFactory = createTrustStoreSslSocketFactory();
     // These SSL parameters ensure that we use the same hostname verifier used
     // for HTTPS.
     // Note: this options is only available in Java 7.
@@ -94,7 +94,6 @@ public class SSLJedisTest {
     jedis.disconnect();
     jedis.close();
   }
-  */
 
   /**
    * Tests opening an SSL/TLS connection to redis using the loopback address of
@@ -106,7 +105,6 @@ public class SSLJedisTest {
    * It is commented out but not removed in case support for Java 6 is dropped or
    * we find a way to have the CI run a specific set of tests on Java 7 and above.
    */
-  /*
   @Test
   public void connectWithShardInfoByIpAddress() throws Exception {
     final URI uri = URI.create("rediss://127.0.0.1:6390");
@@ -137,7 +135,6 @@ public class SSLJedisTest {
       // Expected.
     }
   }
-  */
 
   /**
    * Tests opening an SSL/TLS connection to redis with a custom hostname
@@ -250,7 +247,7 @@ public class SSLJedisTest {
    * Creates an SSLSocketFactory that trusts all certificates in
    * truststore.jceks.
    */
-  private static SSLSocketFactory createTrustStoreSslSocketFactory() throws Exception {
+  static SSLSocketFactory createTrustStoreSslSocketFactory() throws Exception {
 
     KeyStore trustStore = KeyStore.getInstance("jceks");
     InputStream inputStream = null;
@@ -274,7 +271,7 @@ public class SSLJedisTest {
    * Creates an SSLSocketFactory with a trust manager that does not trust any
    * certificates.
    */
-  private static SSLSocketFactory createTrustNoOneSslSocketFactory() throws Exception {
+  static SSLSocketFactory createTrustNoOneSslSocketFactory() throws Exception {
     TrustManager[] unTrustManagers = new TrustManager[] {
       new X509TrustManager() {
         public X509Certificate[] getAcceptedIssuers() {
@@ -300,7 +297,7 @@ public class SSLJedisTest {
    * for production.
    * 
    */
-  private static class BasicHostnameVerifier implements HostnameVerifier {
+  static class BasicHostnameVerifier implements HostnameVerifier {
 
     private static final String COMMON_NAME_RDN_PREFIX = "CN=";
 

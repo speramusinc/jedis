@@ -1,24 +1,22 @@
 package redis.clients.jedis;
 
 import java.io.Closeable;
-
-import redis.clients.jedis.BinaryClient.LIST_POSITION;
-import redis.clients.util.Hashing;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import redis.clients.util.Pool;
-import redis.clients.jedis.params.geo.GeoRadiusParam;
-import redis.clients.jedis.params.sortedset.ZAddParams;
-import redis.clients.jedis.params.sortedset.ZIncrByParams;
+import redis.clients.jedis.commands.JedisCommands;
+import redis.clients.jedis.params.GeoRadiusParam;
+import redis.clients.jedis.params.SetParams;
+import redis.clients.jedis.params.ZAddParams;
+import redis.clients.jedis.params.ZIncrByParams;
+import redis.clients.util.Hashing;
 
 public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, Closeable {
 
-  protected Pool<ShardedJedis> dataSource = null;
+  protected ShardedJedisPool dataSource = null;
 
   public ShardedJedis(List<JedisShardInfo> shards) {
     super(shards);
@@ -43,15 +41,9 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   }
 
   @Override
-  public String set(String key, String value, String nxxx, String expx, long time) {
+  public String set(final String key, final String value, SetParams params) {
     Jedis j = getShard(key);
-    return j.set(key, value, nxxx, expx, time);
-  }
-
-  @Override
-  public String set(String key, String value, String nxxx) {
-    Jedis j = getShard(key);
-    return j.set(key, value, nxxx);
+    return j.set(key, value, params);
   }
 
   @Override
@@ -76,6 +68,18 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   public String type(final String key) {
     Jedis j = getShard(key);
     return j.type(key);
+  }
+
+  @Override
+  public byte[] dump(final String key) {
+    Jedis j = getShard(key);
+    return j.dump(key);
+  }
+
+  @Override
+  public String restore(final String key, final int ttl, final byte[] serializedValue) {
+    Jedis j = getShard(key);
+    return j.restore(key, ttl, serializedValue);
   }
 
   @Override
@@ -239,6 +243,12 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   }
 
   @Override
+  public Long hset(final String key, final Map<String, String> hash) {
+    Jedis j = getShard(key);
+    return j.hset(key, hash);
+  }
+
+  @Override
   public String hget(final String key, final String field) {
     Jedis j = getShard(key);
     return j.hget(key, field);
@@ -284,6 +294,12 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   public Long del(final String key) {
     Jedis j = getShard(key);
     return j.del(key);
+  }
+
+  @Override
+  public Long unlink(final String key) {
+    Jedis j = getShard(key);
+    return j.unlink(key);
   }
 
   @Override
@@ -724,7 +740,7 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   }
 
   @Override
-  public Long linsert(final String key, final LIST_POSITION where, final String pivot, final String value) {
+  public Long linsert(final String key, final ListPosition where, final String pivot, final String value) {
     Jedis j = getShard(key);
     return j.linsert(key, where, pivot, value);
   }
@@ -753,39 +769,6 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
     return j.bitpos(key, value, params);
   }
 
-  @Deprecated
-  /**
-   * This method is deprecated due to bug (scan cursor should be unsigned long)
-   * And will be removed on next major release
-   * @see https://github.com/xetorthio/jedis/issues/531 
-   */
-  public ScanResult<Entry<String, String>> hscan(String key, int cursor) {
-    Jedis j = getShard(key);
-    return j.hscan(key, cursor);
-  }
-
-  @Deprecated
-  /**
-   * This method is deprecated due to bug (scan cursor should be unsigned long)
-   * And will be removed on next major release
-   * @see https://github.com/xetorthio/jedis/issues/531 
-   */
-  public ScanResult<String> sscan(String key, int cursor) {
-    Jedis j = getShard(key);
-    return j.sscan(key, cursor);
-  }
-
-  @Deprecated
-  /**
-   * This method is deprecated due to bug (scan cursor should be unsigned long)
-   * And will be removed on next major release
-   * @see https://github.com/xetorthio/jedis/issues/531 
-   */
-  public ScanResult<Tuple> zscan(String key, int cursor) {
-    Jedis j = getShard(key);
-    return j.zscan(key, cursor);
-  }
-
   @Override
   public ScanResult<Entry<String, String>> hscan(final String key, final String cursor) {
     Jedis j = getShard(key);
@@ -805,21 +788,21 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   }
 
   @Override
-  public ScanResult<String> sscan(String key, String cursor, ScanParams params) {
-    Jedis j = getShard(key);
-    return j.sscan(key, cursor, params);
-  }
-
-  @Override
-  public ScanResult<Tuple> zscan(String key, final String cursor) {
+  public ScanResult<Tuple> zscan(final String key, final String cursor) {
     Jedis j = getShard(key);
     return j.zscan(key, cursor);
   }
 
   @Override
-  public ScanResult<Tuple> zscan(String key, String cursor, ScanParams params) {
+  public ScanResult<Tuple> zscan(final String key, final String cursor, final ScanParams params) {
     Jedis j = getShard(key);
     return j.zscan(key, cursor, params);
+  }
+
+  @Override
+  public ScanResult<String> sscan(final String key, final String cursor, final ScanParams params) {
+    Jedis j = getShard(key);
+    return j.sscan(key, cursor, params);
   }
 
   @Override
@@ -845,7 +828,7 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
     }
   }
 
-  public void setDataSource(Pool<ShardedJedis> shardedJedisPool) {
+  public void setDataSource(ShardedJedisPool shardedJedisPool) {
     this.dataSource = shardedJedisPool;
   }
 
@@ -865,6 +848,12 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   public long pfcount(final String key) {
     Jedis j = getShard(key);
     return j.pfcount(key);
+  }
+
+  @Override
+  public Long touch(final String key) {
+    Jedis j = getShard(key);
+    return j.touch(key);
   }
 
   @Override
@@ -935,5 +924,11 @@ public class ShardedJedis extends BinaryShardedJedis implements JedisCommands, C
   public List<Long> bitfield(final String key, final String... arguments) {
     Jedis j = getShard(key);
     return j.bitfield(key, arguments);
+  }
+
+  @Override
+  public Long hstrlen(final String key, final String field) {
+    Jedis j = getShard(key);
+    return j.hstrlen(key, field);
   }
 }

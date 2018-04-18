@@ -347,4 +347,5 @@ public class TransactionCommandsTest extends JedisCommandTestBase {
       // pass
     }
   }
+
 }

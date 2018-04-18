@@ -285,30 +285,6 @@ public final class BuilderFactory {
 
   };
 
-  public static final Builder<Set<Tuple>> TUPLE_ZSET_BINARY = new Builder<Set<Tuple>>() {
-    @Override
-    @SuppressWarnings("unchecked")
-    public Set<Tuple> build(Object data) {
-      if (null == data) {
-        return null;
-      }
-      List<byte[]> l = (List<byte[]>) data;
-      final Set<Tuple> result = new LinkedHashSet<Tuple>(l.size()/2, 1);
-      Iterator<byte[]> iterator = l.iterator();
-      while (iterator.hasNext()) {
-        result.add(new Tuple(iterator.next(), DOUBLE.build(iterator.next())));
-      }
-
-      return result;
-
-    }
-
-    @Override
-    public String toString() {
-      return "ZSet<Tuple>";
-    }
-  };
-
   public static final Builder<Object> EVAL_RESULT = new Builder<Object>() {
 
     @Override
@@ -452,6 +428,35 @@ public final class BuilderFactory {
     }
   };
 
+
+  public static final Builder<List<Module>> MODULE_LIST = new Builder<List<Module>>() {
+    @Override
+    public List<Module> build(Object data) {
+      if (data == null) {
+        return null;
+      }
+
+      List<List<Object>> objectList = (List<List<Object>>) data;
+
+      List<Module> responses = new ArrayList<Module>(objectList.size());
+      if (objectList.isEmpty()) {
+        return responses;
+      }
+
+      for (List<Object> moduleResp: objectList) {
+        Module m = new Module(SafeEncoder.encode((byte[]) moduleResp.get(1)), ((Long) moduleResp.get(3)).intValue());
+        responses.add(m);
+      }
+
+      return responses;
+    }
+
+    @Override
+    public String toString() {
+      return "List<Module>";
+    }
+  };
+
   public static final Builder<List<Long>> LONG_LIST = new Builder<List<Long>>() {
     @Override
     @SuppressWarnings("unchecked")
@@ -468,6 +473,7 @@ public final class BuilderFactory {
     }
 
   };
+
 
   private BuilderFactory() {
     throw new InstantiationError( "Must not instantiate this class" );

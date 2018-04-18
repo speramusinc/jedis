@@ -8,6 +8,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
 import static redis.clients.jedis.ScanParams.SCAN_POINTER_START_BINARY;
+import static redis.clients.jedis.params.SetParams.setParams;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -15,9 +16,9 @@ import java.util.Set;
 
 import org.junit.Test;
 
+import redis.clients.jedis.Protocol.Keyword;
 import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
-import redis.clients.jedis.Protocol.Keyword;
 import redis.clients.util.SafeEncoder;
 
 public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
@@ -36,12 +37,20 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
 
   final byte[] bnx = { 0x6E, 0x78 };
   final byte[] bex = { 0x65, 0x78 };
-  final long expireSeconds = 2;
+  final int expireSeconds = 2;
 
   @Test
   public void ping() {
     String status = jedis.ping();
     assertEquals("PONG", status);
+  }
+
+  @Test
+  public void pingWithMessage() {
+    String argument = "message";
+    assertEquals(argument, jedis.ping(argument));
+    
+    assertArrayEquals(bfoobar, jedis.ping(bfoobar));
   }
 
   @Test
@@ -134,6 +143,46 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
     assertEquals(1, reply);
 
     reply = jedis.del(bfoo1, bfoo2);
+    assertEquals(0, reply);
+  }
+
+  @Test
+  public void unlink() {
+    jedis.set("foo1", "bar1");
+    jedis.set("foo2", "bar2");
+    jedis.set("foo3", "bar3");
+
+    long reply = jedis.unlink("foo1", "foo2", "foo3");
+    assertEquals(3, reply);
+
+    reply = jedis.exists("foo1", "foo2", "foo3");
+    assertEquals(0, reply);
+
+    jedis.set("foo1", "bar1");
+
+    reply = jedis.unlink("foo1", "foo2");
+    assertEquals(1, reply);
+
+    reply = jedis.unlink("foo1", "foo2");
+    assertEquals(0, reply);
+
+    // Binary ...
+    jedis.set(bfoo1, bbar1);
+    jedis.set(bfoo2, bbar2);
+    jedis.set(bfoo3, bbar3);
+
+    reply = jedis.unlink(bfoo1, bfoo2, bfoo3);
+    assertEquals(3, reply);
+
+    reply = jedis.exists(bfoo1, bfoo2, bfoo3);
+    assertEquals(0, reply);
+
+    jedis.set(bfoo1, bbar1);
+
+    reply = jedis.unlink(bfoo1, bfoo2);
+    assertEquals(1, reply);
+
+    reply = jedis.unlink(bfoo1, bfoo2);
     assertEquals(0, reply);
   }
 
@@ -348,6 +397,55 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
   }
 
   @Test
+  public void touch() throws Exception {
+    long reply = jedis.touch("foo1", "foo2", "foo3");
+    assertEquals(0, reply);
+
+    jedis.set("foo1", "bar1");
+
+    Thread.sleep(1100); // little over 1 sec
+    assertTrue(jedis.objectIdletime("foo1") > 0);
+
+    reply = jedis.touch("foo1");
+    assertEquals(1, reply);
+    assertTrue(jedis.objectIdletime("foo1") == 0);
+
+    reply = jedis.touch("foo1", "foo2", "foo3");
+    assertEquals(1, reply);
+
+    jedis.set("foo2", "bar2");
+
+    jedis.set("foo3", "bar3");
+
+    reply = jedis.touch("foo1", "foo2", "foo3");
+    assertEquals(3, reply);
+
+    // Binary
+    reply = jedis.touch(bfoo1, bfoo2, bfoo3);
+    assertEquals(0, reply);
+
+    jedis.set(bfoo1, bbar1);
+
+    Thread.sleep(1100); // little over 1 sec
+    assertTrue(jedis.objectIdletime(bfoo1) > 0);
+
+    reply = jedis.touch(bfoo1);
+    assertEquals(1, reply);
+    assertTrue(jedis.objectIdletime(bfoo1) == 0);
+
+    reply = jedis.touch(bfoo1, bfoo2, bfoo3);
+    assertEquals(1, reply);
+
+    jedis.set(bfoo2, bbar2);
+
+    jedis.set(bfoo3, bbar3);
+
+    reply = jedis.touch(bfoo1, bfoo2, bfoo3);
+    assertEquals(3, reply);
+
+  }
+
+  @Test
   public void select() {
     jedis.set("foo", "bar");
     String status = jedis.select(1);
@@ -368,9 +466,9 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
 
   @Test
   public void getDB() {
-    assertEquals(0, jedis.getDB().longValue());
+    assertEquals(0, jedis.getDB());
     jedis.select(1);
-    assertEquals(1, jedis.getDB().longValue());
+    assertEquals(1, jedis.getDB());
   }
 
   @Test
@@ -399,6 +497,34 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
     jedis.select(1);
     assertArrayEquals(bbar, jedis.get(bfoo));
 
+  }
+
+  @Test
+  public void swapDB() {
+    jedis.set("foo1", "bar1");
+    jedis.select(1);
+    assertNull(jedis.get("foo1"));
+    jedis.set("foo2", "bar2");
+    String status = jedis.swapDB(0, 1);
+    assertEquals("OK", status);
+    assertEquals("bar1", jedis.get("foo1"));
+    assertNull(jedis.get("foo2"));
+    jedis.select(0);
+    assertNull(jedis.get("foo1"));
+    assertEquals("bar2", jedis.get("foo2"));
+
+    // Binary
+    jedis.set(bfoo1, bbar1);
+    jedis.select(1);
+    assertArrayEquals(null, jedis.get(bfoo1));
+    jedis.set(bfoo2, bbar2);
+    status = jedis.swapDB(0, 1);
+    assertEquals("OK", status);
+    assertArrayEquals(bbar1, jedis.get(bfoo1));
+    assertArrayEquals(null, jedis.get(bfoo2));
+    jedis.select(0);
+    assertArrayEquals(null, jedis.get(bfoo1));
+    assertArrayEquals(bbar2, jedis.get(bfoo2));
   }
 
   @Test
@@ -552,7 +678,7 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
 
     ScanResult<String> result = jedis.scan(SCAN_POINTER_START);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary
@@ -572,7 +698,7 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
     jedis.set("aa", "aa");
     ScanResult<String> result = jedis.scan(SCAN_POINTER_START, params);
 
-    assertEquals(SCAN_POINTER_START, result.getStringCursor());
+    assertEquals(SCAN_POINTER_START, result.getCursor());
     assertFalse(result.getResult().isEmpty());
 
     // binary
@@ -627,7 +753,7 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
     // see: https://redis.io/commands/scan#number-of-elements-returned-at-every-scan-call
     assertFalse(result.isCompleteIteration());
 
-    result = scanCompletely(result.getStringCursor());
+    result = scanCompletely(result.getCursor());
 
     assertNotNull(result);
     assertTrue(result.isCompleteIteration());
@@ -637,20 +763,20 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
     ScanResult<String> scanResult;
     do {
       scanResult = jedis.scan(cursor);
-      cursor = scanResult.getStringCursor();
-    } while (!SCAN_POINTER_START.equals(scanResult.getStringCursor()));
+      cursor = scanResult.getCursor();
+    } while (!SCAN_POINTER_START.equals(scanResult.getCursor()));
 
     return scanResult;
   }
 
   @Test
   public void setNxExAndGet() {
-    String status = jedis.set("hello", "world", "NX", "EX", expireSeconds);
+    String status = jedis.set("hello", "world", setParams().nx().ex(expireSeconds));
     assertTrue(Keyword.OK.name().equalsIgnoreCase(status));
     String value = jedis.get("hello");
     assertEquals("world", value);
 
-    jedis.set("hello", "bar", "NX", "EX", expireSeconds);
+    jedis.set("hello", "bar", setParams().nx().ex(expireSeconds));
     value = jedis.get("hello");
     assertEquals("world", value);
 
@@ -660,12 +786,13 @@ public class AllKindOfValuesCommandsTest extends JedisCommandTestBase {
     // binary
     byte[] bworld = { 0x77, 0x6F, 0x72, 0x6C, 0x64 };
     byte[] bhello = { 0x68, 0x65, 0x6C, 0x6C, 0x6F };
-    String bstatus = jedis.set(bworld, bhello, bnx, bex, expireSeconds);
+
+    String bstatus = jedis.set(bworld, bhello, setParams().nx().ex(expireSeconds));
     assertTrue(Keyword.OK.name().equalsIgnoreCase(bstatus));
     byte[] bvalue = jedis.get(bworld);
     assertTrue(Arrays.equals(bhello, bvalue));
 
-    jedis.set(bworld, bbar, bnx, bex, expireSeconds);
+    jedis.set(bworld, bbar, setParams().nx().ex(expireSeconds));
     bvalue = jedis.get(bworld);
     assertTrue(Arrays.equals(bhello, bvalue));
 

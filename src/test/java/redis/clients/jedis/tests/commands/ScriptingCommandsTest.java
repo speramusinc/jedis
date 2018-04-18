@@ -14,6 +14,7 @@ import java.util.List;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.junit.Test;
+
 import redis.clients.jedis.BinaryJedis;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisConnectionException;
@@ -100,7 +101,6 @@ public class ScriptingCommandsTest extends JedisCommandTestBase {
     assertEquals(new Long(2), response);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void evalNestedLists() {
     String script = "return { {KEYS[1]} , {2} }";
@@ -179,10 +179,9 @@ public class ScriptingCommandsTest extends JedisCommandTestBase {
   @Test
   public void scriptLoadBinary() {
     jedis.scriptLoad(SafeEncoder.encode("return redis.call('get','foo')"));
-    byte[][] scripts = new byte[1][];
-    scripts[0] = SafeEncoder.encode("6b1bf486c81ceb7edf3c093f4c48582e38c0e791");
-    List<Long> exists = jedis.scriptExists(scripts);
-    assertEquals(new Long(1), exists.get(0));
+    Long exists = jedis
+        .scriptExists(SafeEncoder.encode("6b1bf486c81ceb7edf3c093f4c48582e38c0e791"));
+    assertEquals((Long) 1L, exists);
   }
 
   @Test

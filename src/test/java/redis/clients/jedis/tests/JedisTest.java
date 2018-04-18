@@ -114,14 +114,14 @@ public class JedisTest extends JedisCommandTestBase {
 
   @Test
   public void shouldNotUpdateDbIndexIfSelectFails() throws URISyntaxException {
-    long currentDb = jedis.getDB();
+    int currentDb = jedis.getDB();
     try {
       int invalidDb = -1;
       jedis.select(invalidDb);
 
       fail("Should throw an exception if tried to select invalid db");
     } catch (JedisException e) {
-      assertEquals(currentDb, jedis.getDB().intValue());
+      assertEquals(currentDb, jedis.getDB());
     }
   }
 
@@ -131,13 +131,13 @@ public class JedisTest extends JedisCommandTestBase {
     jedis.auth("foobared");
     assertEquals(jedis.getClient().getHost(), "localhost");
     assertEquals(jedis.getClient().getPort(), 6380);
-    assertEquals(jedis.getDB(), (Long) 0L);
+    assertEquals(jedis.getDB(), 0);
 
     jedis = new Jedis("redis://localhost:6380/");
     jedis.auth("foobared");
     assertEquals(jedis.getClient().getHost(), "localhost");
     assertEquals(jedis.getClient().getPort(), 6380);
-    assertEquals(jedis.getDB(), (Long) 0L);
+    assertEquals(jedis.getDB(), 0);
   }
 
   @Test
@@ -147,4 +147,11 @@ public class JedisTest extends JedisCommandTestBase {
     bj.connect();
     bj.close();
   }
+
+  @Test
+  public void checkDisconnectOnQuit() {
+    jedis.quit();
+    assertFalse(jedis.getClient().isConnected());
+  }
+
 }

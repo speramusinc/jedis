@@ -14,13 +14,13 @@ public class ConnectionHandlingCommandsTest {
 
   @Test
   public void quit() {
-    Jedis jedis = new Jedis(hnp.getHost(), hnp.getPort());
+    Jedis jedis = new Jedis(hnp);
     assertEquals("OK", jedis.quit());
   }
 
   @Test
   public void binary_quit() {
-    BinaryJedis bj = new BinaryJedis(hnp.getHost(), hnp.getPort());
+    BinaryJedis bj = new BinaryJedis(hnp);
     assertEquals("OK", bj.quit());
   }
 }

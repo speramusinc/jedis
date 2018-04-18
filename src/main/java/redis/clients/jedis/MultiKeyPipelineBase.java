@@ -1,12 +1,14 @@
 package redis.clients.jedis;
 
+import redis.clients.jedis.commands.*;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public abstract class MultiKeyPipelineBase extends PipelineBase implements BasicRedisPipeline,
+public abstract class MultiKeyPipelineBase extends PipelineBase implements
     MultiKeyBinaryRedisPipeline, MultiKeyCommandsPipeline, ClusterPipeline,
-    BinaryScriptingCommandsPipeline {
+    BinaryScriptingCommandsPipeline, ScriptingCommandsPipeline, BasicRedisPipeline {
 
   protected Client client = null;
 
@@ -73,6 +75,18 @@ public abstract class MultiKeyPipelineBase extends PipelineBase implements Basic
   @Override
   public Response<Long> del(byte[]... keys) {
     client.del(keys);
+    return getResponse(BuilderFactory.LONG);
+  }
+
+  @Override
+  public Response<Long> unlink(String... keys) {
+    client.unlink(keys);
+    return getResponse(BuilderFactory.LONG);
+  }
+
+  @Override
+  public Response<Long> unlink(byte[]... keys) {
+    client.unlink(keys);
     return getResponse(BuilderFactory.LONG);
   }
 
@@ -441,11 +455,6 @@ public abstract class MultiKeyPipelineBase extends PipelineBase implements Basic
     return getResponse(BuilderFactory.STRING);
   }
 
-  public Response<List<String>> time() {
-    client.time();
-    return getResponse(BuilderFactory.STRING_LIST);
-  }
-
   @Override
   public Response<Long> dbSize() {
     client.dbSize();
@@ -471,6 +480,12 @@ public abstract class MultiKeyPipelineBase extends PipelineBase implements Basic
     client.setDb(index);
 
     return response;
+  }
+
+  @Override
+  public Response<String> swapDB(int index1, int index2) {
+    client.swapDB(index1, index2);
+    return getResponse(BuilderFactory.STRING);
   }
 
   @Override
@@ -540,6 +555,40 @@ public abstract class MultiKeyPipelineBase extends PipelineBase implements Basic
   }
 
   @Override
+  public Response<Object> eval(String script) {
+    return this.eval(script, 0, new String[0]);
+  }
+
+  @Override
+  public Response<Object> eval(String script, List<String> keys, List<String> args) {
+    String[] argv = Jedis.getParams(keys, args);
+    return this.eval(script, keys.size(), argv);
+  }
+
+  @Override
+  public Response<Object> eval(String script, int keyCount, String... params) {
+    getClient(script).eval(script, keyCount, params);
+    return getResponse(BuilderFactory.EVAL_RESULT);
+  }
+
+  @Override
+  public Response<Object> evalsha(String sha1) {
+    return this.evalsha(sha1, 0, new String[0]);
+  }
+
+  @Override
+  public Response<Object> evalsha(String sha1, List<String> keys, List<String> args) {
+    String[] argv = Jedis.getParams(keys, args);
+    return this.evalsha(sha1, keys.size(), argv);
+  }
+
+  @Override
+  public Response<Object> evalsha(String sha1, int keyCount, String... params) {
+    getClient(sha1).evalsha(sha1, keyCount, params);
+    return getResponse(BuilderFactory.EVAL_RESULT);
+  }
+
+  @Override
   public Response<Object> eval(byte[] script) {
     return this.eval(script, 0);
   }
@@ -580,6 +629,18 @@ public abstract class MultiKeyPipelineBase extends PipelineBase implements Basic
   }
 
   @Override
+  public Response<Long> pfcount(String... keys) {
+    client.pfcount(keys);
+    return getResponse(BuilderFactory.LONG);
+  }
+
+  @Override
+  public Response<Long> pfcount(final byte[]... keys) {
+    client.pfcount(keys);
+    return getResponse(BuilderFactory.LONG);
+  }
+
+  @Override
   public Response<String> pfmerge(byte[] destkey, byte[]... sourcekeys) {
     client.pfmerge(destkey, sourcekeys);
     return getResponse(BuilderFactory.STRING);
@@ -592,15 +653,40 @@ public abstract class MultiKeyPipelineBase extends PipelineBase implements Basic
   }
 
   @Override
-  public Response<Long> pfcount(String... keys) {
-    client.pfcount(keys);
+  public Response<List<String>> time() {
+    client.time();
+    return getResponse(BuilderFactory.STRING_LIST);
+  }
+
+  @Override
+  public Response<Long> touch(String... keys) {
+    client.touch(keys);
     return getResponse(BuilderFactory.LONG);
   }
 
   @Override
-  public Response<Long> pfcount(final byte[]... keys) {
-    client.pfcount(keys);
+  public Response<Long> touch(byte[]... keys) {
+    client.touch(keys);
     return getResponse(BuilderFactory.LONG);
   }
 
+  @Override
+  public Response<String> moduleUnload(String name) {
+    client.moduleUnload(name);
+    return getResponse(BuilderFactory.STRING);
+  }
+
+  @Override
+  public Response<List<Module>> moduleList() {
+    client.moduleList();
+    return getResponse(BuilderFactory.MODULE_LIST);
+  }
+
+  @Override
+  public Response<String> moduleLoad(String path) {
+    client.moduleLoad(path);
+    return getResponse(BuilderFactory.STRING);
+  }  
+  
+  
 }
